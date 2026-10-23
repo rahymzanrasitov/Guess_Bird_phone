@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Угадай птицу по голосу</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #E5E5E5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #1a1a1a;
+            overflow: hidden;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px; /* Небольшой отступ между блоками */
+            padding: 10px;
+            background-color: #E5E5E5;
+        }
+
+        /* Переключатель языков */
+        .lang-switch {
+            display: flex;
+            gap: 6px;
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .lang-btn {
+            background: #D9D9D9;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background: #2D3748;
+            color: white;
+        }
+
+        /* Полоса статуса */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            background: #D9D9D9;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        /* Карточка скрытой птицы */
+        .target-card {
+            width: 100%;
+            height: 130px;
+            background-color: #D9D9D9;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .target-emoji {
+            font-size: 60px;
+            line-height: 1;
+            margin-bottom: 4px;
+            display: none;
+        }
+
+        .target-text {
+            font-size: 18px;
+            color: #000000;
+        }
+
+        /* Кнопка воспроизведения */
+        .play-sound-btn {
+            background-color: #2D3748;
+            color: white;
+            border: none;
+            padding: 14px 22px;
+            border-radius: 8px;
+            font-size: 17px;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Сетка вариантов */
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+
+        .option-card {
+            background-color: #D9D9D9;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            height: 95px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .option-card:active {
+            transform: scale(0.96);
+        }
+
+        /* Карточка Пеликана (5-я) */
+        .option-card:nth-child(5) {
+            grid-column: span 2;
+            height: 85px;
+        }
+
+        .option-emoji {
+            font-size: 34px;
+            margin-bottom: 2px;
+        }
+
+        .option-title {
+            font-size: 17px;
+            color: #000000;
+        }
+
+        .option-card.correct {
+            background-color: #81E6D9 !important;
+        }
+
+        .option-card.wrong {
+            background-color: #FEB2B2 !important;
+        }
+
+        /* Окно результатов */
+        .result-modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(229, 229, 229, 0.96);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 10;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .result-modal.active {
+            display: flex;
+        }
+
+        .result-title {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .restart-btn {
+            background-color: #2D3748;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 17px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Языковой переключатель -->
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="setLanguage('ru', event)">РУС</button>
+            <button class="lang-btn" onclick="setLanguage('kk', event)">ҚАЗ</button>
+            <button class="lang-btn" onclick="setLanguage('en', event)">ENG</button>
+        </div>
+
+        <!-- Полоса статуса -->
+        <div class="status-bar">
+            <span><span id="labelAttempts">Попытки</span>: <span id="attemptsText">5</span>/5</span>
+            <span><span id="labelScore">Угадано</span>: <span id="scoreText">0</span>/4</span>
+        </div>
+
+        <!-- Верхняя карточка скрытой птицы -->
+        <div class="target-card" id="targetCard" onclick="playCurrentAudio()">
+            <div class="target-emoji" id="targetEmoji">🐦</div>
+            <div class="target-text" id="targetText">какая-то птица, ее не видно</div>
+        </div>
+
+        <!-- Кнопка воспроизведения -->
+        <button class="play-sound-btn" onclick="playCurrentAudio()">
+            🔊 <span id="labelPlay">Слушать голос</span>
+        </button>
+
+        <!-- Варианты птиц -->
+        <div class="options-grid" id="optionsGrid"></div>
+
+        <!-- Окно результатов -->
+        <div class="result-modal" id="resultModal">
+            <div class="result-title" id="resultTitle">🎉 ПОБЕДА!</div>
+            <div id="resultText" style="font-size: 18px;">Вы угадали 4 птицы!</div>
+            <button class="restart-btn" id="restartBtn" onclick="restartGame()">Начать заново</button>
+        </div>
+    </div>
+
+    <script>
+        let currentLang = 'ru';
+
+        const TRANSLATIONS = {
+            ru: {
+                attempts: 'Попытки',
+                score: 'Угадано',
+                targetUnknown: 'какая-то птица, ее не видно',
+                listen: 'Слушать голос',
+                winTitle: '🎉 ПОБЕДА!',
+                winText: 'Вы угадали 4 птицы!',
+                loseTitle: '❌ ПОРАЖЕНИЕ',
+                loseText: 'Закончились попытки',
+                restart: 'Начать заново'
+            },
+            kk: {
+                attempts: 'Әрекеттер',
+                score: 'Табылды',
+                targetUnknown: 'қандай да бір құс, көрінбейді',
+                listen: 'Дыбысын тыңдау',
+                winTitle: '🎉 ҒАЖАП ЖЕҢІС!',
+                winText: 'Сіз 4 құсты таптыңыз!',
+                loseTitle: '❌ ҰТЫЛЫС',
+                loseText: 'Әрекеттер аяқталды',
+                restart: 'Қайта бастау'
+            },
+            en: {
+                attempts: 'Attempts',
+                score: 'Guessed',
+                targetUnknown: 'some bird, hidden from view',
+                listen: 'Listen voice',
+                winTitle: '🎉 VICTORY!',
+                winText: 'You guessed 4 birds!',
+                loseTitle: '❌ GAME OVER',
+                loseText: 'Out of attempts',
+                restart: 'Play again'
+            }
+        };
+
+        const INITIAL_BIRDS = [
+            { id: 'crow', emoji: '🐦‍⬛', sounds: [['Crow1.wav'], ['crow2.wav']], freq: 400, names: { ru: 'Crow', kk: 'Қарға', en: 'Crow' } },
+            { id: 'swan', emoji: '🦢', sounds: [['swan1.wav'], ['swan2.wav']], freq: 650, names: { ru: 'Swan', kk: 'Аққу', en: 'Swan' } },
+            { id: 'duck', emoji: '🦆', sounds: [['Duck1.mp3', 'Duck1.wav'], ['Duck2.wav', 'Duck2.mp3']], freq: 300, names: { ru: 'Duck', kk: 'Үйрек', en: 'Duck' } },
+            { id: 'eagle', emoji: '🦅', sounds: [['Goldeneagle1.wav'], ['Goldeneagle2.wav']], freq: 850, names: { ru: 'eagle', kk: 'Бүркіт', en: 'eagle' } },
+            { id: 'pelican', emoji: '🦤', sounds: [['Herons1.wav'], ['Herons2.wav']], freq: 250, names: { ru: 'Pelican', kk: 'Бірқазан', en: 'Pelican' } }
+        ];
+
+        let gameBirdsData = [];
+        let currentTargetBird = null;
+        let currentAudio = null;
+        let isProcessing = false;
+
+        let attemptsLeft = 5;
+        let score = 0;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        restartGame();
+
+        function setLanguage(lang, e) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            if (e && e.target) e.target.classList.add('active');
+
+            const t = TRANSLATIONS[currentLang];
+            document.getElementById('labelAttempts').textContent = t.attempts;
+            document.getElementById('labelScore').textContent = t.score;
+            document.getElementById('labelPlay').textContent = t.listen;
+            document.getElementById('restartBtn').textContent = t.restart;
+
+            if (!document.getElementById('targetEmoji').style.display || document.getElementById('targetEmoji').style.display === 'none') {
+                document.getElementById('targetText').textContent = t.targetUnknown;
+            } else if (currentTargetBird) {
+                document.getElementById('targetText').textContent = currentTargetBird.names[currentLang];
+            }
+
+            renderGrid();
+        }
+
+        function restartGame() {
+            attemptsLeft = 5;
+            score = 0;
+
+            gameBirdsData = INITIAL_BIRDS.map(bird => ({
+                ...bird,
+                soundsPool: [...bird.sounds]
+            }));
+
+            document.getElementById('resultModal').classList.remove('active');
+            updateUI();
+            nextRound();
+        }
+
+        function updateUI() {
+            document.getElementById('attemptsText').textContent = attemptsLeft;
+            document.getElementById('scoreText').textContent = score;
+        }
+
+        function nextRound() {
+            isProcessing = false;
+            const t = TRANSLATIONS[currentLang];
+            
+            document.getElementById('targetEmoji').style.display = 'none';
+            document.getElementById('targetText').style.display = 'block';
+            document.getElementById('targetText').textContent = t.targetUnknown;
+
+            const activePool = gameBirdsData.filter(b => b.soundsPool.length > 0);
+            
+            if (activePool.length === 0) {
+                gameBirdsData.forEach(b => {
+                    b.soundsPool = [...b.sounds];
+                });
+            }
+
+            const currentPool = gameBirdsData.filter(b => b.soundsPool.length > 0);
+            currentTargetBird = currentPool[Math.floor(Math.random() * currentPool.length)];
+
+            const soundIndex = Math.floor(Math.random() * currentTargetBird.soundsPool.length);
+            const chosenSoundVariants = currentTargetBird.soundsPool.splice(soundIndex, 1)[0];
+
+            if (currentAudio) {
+                currentAudio.pause();
+            }
+
+            currentAudio = new Audio();
+            let variantIndex = 0;
+
+            function tryLoadSound() {
+                if (variantIndex < chosenSoundVariants.length) {
+                    currentAudio.src = chosenSoundVariants[variantIndex];
+                    currentAudio.onerror = () => {
+                        variantIndex++;
+                        tryLoadSound();
+                    };
+                }
+            }
+            tryLoadSound();
+
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('optionsGrid');
+            grid.innerHTML = '';
+
+            gameBirdsData.forEach(bird => {
+                const card = document.createElement('div');
+                card.className = 'option-card';
+                card.onclick = () => checkAnswer(bird, card);
+
+                card.innerHTML = `
+                    <div class="option-emoji">${bird.emoji}</div>
+                    <div class="option-title">${bird.names[currentLang]}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function playCurrentAudio() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (currentAudio && currentAudio.src) {
+                currentAudio.currentTime = 0;
+                currentAudio.play().catch(() => {
+                    playFallbackSynth(currentTargetBird.freq);
+                });
+            } else {
+                playFallbackSynth(currentTargetBird.freq);
+            }
+        }
+
+        function playFallbackSynth(freq) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function checkAnswer(selectedBird, cardElement) {
+            if (isProcessing || attemptsLeft <= 0) return;
+            isProcessing = true;
+
+            attemptsLeft--;
+            updateUI();
+
+            if (selectedBird.id === currentTargetBird.id) {
+                score++;
+                updateUI();
+                cardElement.classList.add('correct');
+
+                document.getElementById('targetEmoji').textContent = currentTargetBird.emoji;
+                document.getElementById('targetEmoji').style.display = 'block';
+                document.getElementById('targetText').textContent = currentTargetBird.names[currentLang];
+
+                setTimeout(() => {
+                    checkGameEnd();
+                }, 1200);
+            } else {
+                cardElement.classList.add('wrong');
+                setTimeout(() => {
+                    cardElement.classList.remove('wrong');
+                    checkGameEnd();
+                }, 800);
+            }
+        }
+
+        function checkGameEnd() {
+            if (score >= 4) {
+                showEndScreen(true);
+            } else if (attemptsLeft <= 0) {
+                showEndScreen(false);
+            } else {
+                nextRound();
+            }
+        }
+
+        function showEndScreen(isWin) {
+            const modal = document.getElementById('resultModal');
+            const title = document.getElementById('resultTitle');
+            const text = document.getElementById('resultText');
+            const t = TRANSLATIONS[currentLang];
+
+            if (isWin) {
+                title.textContent = t.winTitle;
+                text.textContent = t.winText;
+            } else {
+                title.textContent = t.loseTitle;
+                text.textContent = `${t.loseText} (${t.score}: ${score}/4)`;
+            }
+
+            modal.classList.add('active');
+        }
+    </script>
+</body>
+</html>
